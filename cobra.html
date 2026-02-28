@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cobrinha com Pontuação Dinâmica</title>
+<style>
+    body {
+        background: #000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        flex-direction: column;
+        color: #0f0;
+        font-family: Arial, sans-serif;
+        margin: 0;
+    }
+    canvas {
+        background: #111;
+        box-shadow: 0 0 20px #0f0;
+    }
+    #score {
+        margin-bottom: 10px;
+        font-size: 20px;
+    }
+</style>
+</head>
+<body>
+<div id="score">Pontuação: 0</div>
+<canvas id="game" width="400" height="400"></canvas>
+
+<script>
+// Sons
+const eatSound = new Audio("https://assets.mixkit.co/sfx/preview/mixkit-game-ball-tap-2073.mp3");
+const gameOverSound = new Audio("https://assets.mixkit.co/sfx/preview/mixkit-arcade-retro-game-over-213.wav");
+const bgMusic = new Audio("https://assets.mixkit.co/music/preview/mixkit-retro-game-emergency-alarm-2490.mp3");
+bgMusic.loop = true;
+bgMusic.volume = 0.3;
+
+// Variáveis
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const scoreEl = document.getElementById("score");
+
+const box = 20;
+let snake = [{ x: 9 * box, y: 9 * box }];
+let direction = "right";
+let food = {
+    x: Math.floor(Math.random() * 20) * box,
+    y: Math.floor(Math.random() * 20) * box
+};
+let score = 0;
+let speed = 150;
+let game;
+
+// Controle do tempo para pontuação
+let lastEatTime = Date.now();
+const basePoints = 10;
+
+// Controles
+document.addEventListener("keydown", event => {
+    if (!bgMusic.paused) return;
+    bgMusic.play(); // Música começa ao jogar
+});
+
+document.addEventListener("keydown", event => {
+    if (event.key === "ArrowLeft" && direction !== "right") direction = "left";
+    if (event.key === "ArrowUp" && direction !== "down") direction = "up";
+    if (event.key === "ArrowRight" && direction !== "left") direction = "right";
+    if (event.key === "ArrowDown" && direction !== "up") direction = "down";
+});
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Cobra
+    snake.forEach((part, index) => {
+        const gradient = ctx.createLinearGradient(part.x, part.y, part.x + box, part.y + box);
+        gradient.addColorStop(0, index === 0 ? "#0f0" : "#1a1");
+        gradient.addColorStop(1, index === 0 ? "#6f6" : "#3a3");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(part.x, part.y, box, box);
+    });
+
+    // Comida
+    ctx.shadowColor = "red";
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = "red";
+    ctx.fillRect(food.x, food.y, box, box);
+    ctx.shadowBlur = 0;
+
+    // Movimento
+    let headX = snake[0].x;
+    let headY = snake[0].y;
+    if (direction === "left") headX -= box;
+    if (direction === "up") headY -= box;
+    if (direction === "right") headX += box;
+    if (direction === "down") headY += box;
+
+    // Comer
+    if (headX === food.x && headY === food.y) {
+        const now = Date.now();
+        const timeDiff = (now - lastEatTime) / 1000; // segundos
+        lastEatTime = now;
+
+        // Pontuação baseada na velocidade
+        let pointsEarned = basePoints;
+        if (timeDiff < 1.5) pointsEarned *= 4; // muito rápido
+        else if (timeDiff < 3) pointsEarned *= 2; // rápido
+        // se demorar mais, mantém basePoints
+
+        score += pointsEarned;
+        scoreEl.textContent = `Pontuação: ${score} (+${pointsEarned})`;
+
+        eatSound.currentTime = 0;
+        eatSound.play();
+
+        // Nova comida
+        food = {
+            x: Math.floor(Math.random() * 20) * box,
+            y: Math.floor(Math.random() * 20) * box
+        };
+
+        // Aumenta velocidade
+        clearInterval(game);
+        speed = Math.max(50, speed - 5);
+        game = setInterval(draw, speed);
+    } else {
+        snake.pop();
+    }
+
+    // Nova cabeça
+    const newHead = { x: headX, y: headY };
+
+    // Game Over
+    if (
+        headX < 0 || headX >= canvas.width ||
+        headY < 0 || headY >= canvas.height ||
+        snake.some(part => part.x === newHead.x && part.y === newHead.y)
+    ) {
+        clearInterval(game);
+        bgMusic.pause();
+        gameOverSound.play();
+        alert("💀 Game Over! Sua pontuação final: " + score);
+    }
+
+    snake.unshift(newHead);
+}
+
+// Inicia o jogo
+game = setInterval(draw, speed);
+</script>
+</body>
+</html>
